@@ -1,0 +1,394 @@
+---
+title: "Step 2 - Classify Pitchers by Roles"
+author: "Ben Scartz"
+date: "2024-01-23"
+output: html_document
+---
+
+
+
+
+### Roles:
+
+* Innings
+  + opener/starter
+  + Middle
+  + Late
+  + Closer
+  
+* Length
+  + Start
+  + Long
+  + 1 inning/minimum
+  
+* Leverage
+  + High
+  + None
+  + Low
+
+* Matchup
+  + R/L split
+  + Best hitters
+  
+* Creative?
+  (exclude for now)
+  
+
+```{r include=FALSE}
+library(tidyverse)
+```
+
+
+```{r}
+# Load data and libraries
+#library(tidyverse)
+statcast <- read_csv('savant_pitch_level.csv')
+fangraphs_table <- read.csv('fangraphs_cleaned.csv')
+```
+  
+
+###############################################################################
+########################## Innings ############################################
+###############################################################################
+
+* Opener / starter
+
+  + >75% of appearances begin in the 1st inning
+  
+* Middle
+
+  + >75% of appearances begin in the 2nd-6th innings
+
+* Late
+
+  + >75% of appearances begin in the 7th-9th innings
+  
+* Closer 
+
+  + >90% of appearances begin in the 9th inning
+  
+
+
+
+```{r}
+#create a dataframe called inning_roles
+
+innings_roles <- data.frame()
+
+# Extract unique combinations of pitchers and game years from the statcast dataset
+
+pitchers_df <- unique(statcast[c('pitcher', 'game_year')])
+
+# Loop through each row in the pitcher_df dataframe
+
+for(row in 1:nrow(pitchers_df)){
+
+# Extract pitcher names and game year for each row  
+  
+pitcher_name <- pitchers_df$pitcher[row]
+game_year <- pitchers_df$game_year[row]
+
+# Filter the statcast dataset for entries matching the current pitcher and year
+  
+player_data <- filter(statcast, pitcher == pitcher_name, game_year == game_year)
+
+# Calculate the first inning pitched in each game and classify innings
+
+table <- player_data %>%
+  group_by(game_pk) %>%
+  summarize(inning = min(inning)) %>%
+  group_by(inning) %>%
+  summarize(apps = n(),
+            total = nrow(.),
+            percentage = n() / nrow(.))
+
+# Assign roles based on the inning number
+
+table <- table %>%
+  mutate(class = case_when(inning == 1 ~ 'start',
+                                  inning >= 2 &
+                                    inning <= 7 ~ 'middle',
+                                  inning >= 8  ~ 'late'))
+
+# Aggregate percentages by class to determine the pitcher's role
+
+classes <- table %>%
+  group_by(class) %>%
+  summarize(percentage = sum(percentage))
+
+# Calculate the percentage for each role, defaulting to 0 if not present
+
+  start_percentage <- ifelse('start' %in% classes$class, classes$percentage[classes$class == 'start'], 0)
+  middle_percentage <- ifelse('middle' %in% classes$class, classes$percentage[classes$class == 'middle'], 0)
+  late_percentage <- ifelse('late' %in% classes$class, classes$percentage[classes$class == 'late'], 0)
+  close_percentage <- ifelse('close' %in% classes$class, classes$percentage[classes$class == 'close'], 0)
+
+# Determine the pitcher's role based on the highest percentage among start, middle, and late
+  
+new_row <- data.frame(pitcher = pitcher_name,
+                      year = game_year,
+                          role = if_else(start_percentage > 0.70, 'start',
+                                  if_else(middle_percentage > 0.70, 'middle',
+                                   if_else(late_percentage > 0.70, 'late', 'none'))))
+
+# Add the new row to the innings_roles dataframe
+
+innings_roles <- rbind(innings_roles, new_row)
+}
+```
+
+###############################################################################
+########################## Length #############################################
+###############################################################################
+
+* Short 
+
+  + 1-25 pitches
+  
+* Medium 
+
+  + 26-40
+  
+* Long
+
+  + >40 pitches
+
+```{r}
+
+# Initalize an empty dataframe for pitching length
+
+length_roles <- data.frame()
+
+# Extract unique combinations of pitchers and game years from the statcast dataset
+
+pitchers_df <- unique(statcast[c('pitcher', 'game_year')])
+
+# Loop through each row in the pitchers_df dataframe
+
+for(row in 1:nrow(pitchers_df)){
+  
+# Extract the pitcher's name and game year from each row
+
+pitcher_name <- pitchers_df$pitcher[row]
+game_year <- pitchers_df$game_year[row]
+  
+# Filter the statcast dataset for records matching the current pitcher and year
+
+player_data <- filter(statcast, pitcher == pitcher_name, game_year == game_year)
+
+# Calculate the length of appearance in each game and group by length
+
+table <- player_data %>%
+  group_by(game_pk) %>%
+  summarize(length = n()) %>%
+  group_by(length) %>%
+  summarize(total = nrow(.),
+            percentage = n() / nrow(.))
+
+# Classify the length of appearances into short, medium, or long
+
+table <- table %>%
+  mutate(class = case_when(length <= 25 ~ 'short',
+                                  length > 25 &
+                                    length <= 40 ~ 'medium',
+                                  length > 40  ~ 'long'))
+
+# Aggregate percentages by class to determine the pitcher's length role
+
+classes <- table %>%
+  group_by(class) %>%
+  summarize(percentage = sum(percentage))
+
+# Calculate the percentage for each length role, defaulting to 0 if not present
+
+  short_percentage <- ifelse('short' %in% classes$class, classes$percentage[classes$class == 'short'], 0)
+  medium_percentage <- ifelse('medium' %in% classes$class, classes$percentage[classes$class == 'medium'], 0)
+  long_percentage <- ifelse('long' %in% classes$class, classes$percentage[classes$class == 'long'], 0)
+
+# Determine the pitcher's length role based on the highest percentage  
+  
+new_row <- data.frame(pitcher = pitcher_name,
+                      year = game_year,
+                          role = if_else(short_percentage > 0.60, 'short',
+                                  if_else(medium_percentage > 0.60, 'medium',
+                                   if_else(long_percentage > 0.60, 'long', 'none'))))
+
+# Append the new row to the length_roles dataframe
+
+length_roles <- rbind(length_roles, new_row)
+}
+
+# Update length_roles dataframe based on specific conditions and join with innings_roles
+
+length_roles <- innings_roles %>%
+  left_join(length_roles, by = c('pitcher', 'year')) %>%
+  filter(role.x != 'start') %>%
+  select(-role.x) %>%
+  rename(role = role.y)
+  
+```
+
+###############################################################################
+########################## Leverage ###########################################
+###############################################################################
+  
+* High 
+
+  + gmLI > 1.1704 (Q3)
+  
+* None
+  
+  + 1.1704 < gmLI < 0.8788
+
+* Low 
+
+  + gmLI < 0.8788
+  
+```{r}
+#Select relevant columns from fangraphs_table
+
+leverage_table <- fangraphs_table %>%
+  select(MLBAMID, NameASCII, Season, gmLI, IP)
+
+# Calculate and display a summary of the gmLI values for pitchers with more than 25 IP
+
+summary(filter(leverage_table, IP > 25)$gmLI)
+
+```
+
+```{r}
+# Categorize pitchers into leverage roles based on their gmLI and rename columns for clarity
+
+leverage_roles <- leverage_table %>%
+  mutate(role = case_when(gmLI > 1.1704 ~ 'high',
+                          gmLI < 1.1704 & 
+                            gmLI > 0.8788 ~ 'none',
+                          gmLI < 0.8788 ~ 'low')) %>%
+  rename(pitcher = MLBAMID,
+         name = NameASCII,
+         year = Season)
+
+# Update leverage_roles with innings_roles, filter out 'start' roles, and adjust column naming
+
+leverage_roles <- innings_roles %>%
+  left_join(leverage_roles, by = c('pitcher', 'year')) %>%
+  filter(role.x != 'start') %>%
+  select(-role.x) %>%
+  rename(role = role.y)
+
+```
+
+###############################################################################
+########################## Matchups ###########################################
+###############################################################################
+
+* RHH
+
+  + > 66% of batters faced are RHH
+  
+* LHH
+
+  + > 50% of batters faced are LHH
+  
+```{r message=FALSE, warning=FALSE}
+
+# Initialize an empty dataframe to store matchup roles for pitchers
+
+matchup_roles <- data.frame()
+
+# Extract unique combinations of pitchers and game years from the statcast dataset
+
+pitchers_df <- unique(statcast[c('pitcher', 'game_year')])
+
+#Loop through each row in the pitcher_df dataframe
+
+for(row in 1:nrow(pitchers_df)){
+
+# Extract the pitcher's name and game year for the current row  
+  
+pitcher_name <- pitchers_df$pitcher[row]
+game_year <- pitchers_df$game_year[row]
+
+# Filter the statcast dataset for records matching the current pitcher and year
+  
+player_data <- filter(statcast, pitcher == pitcher_name, game_year == game_year)
+
+# Group by game and at-bat number, then summarize the batter's side for each at-bat
+
+table <- player_data %>%
+  group_by(game_pk, at_bat_number) %>%
+  summarize(batter_side = first(stand)) %>%
+  mutate(R = if_else(batter_side == 'R', 1, 0),
+         L = if_else(batter_side == 'L', 1, 0))
+  
+# Calculate the proportion of matchups against RHH and LHH
+
+R <- sum(table$R) / nrow(table)
+L <- sum(table$L) / nrow(table)
+         
+
+# Assign a role based on the proportion of RHH and LHH faced
+         
+new_row <- data.frame(pitcher = pitcher_name,
+                      year = game_year,
+                      role = case_when(R > 0.66 ~ 'RHH',
+                                       L > 0.50 ~ 'LHH',
+                                       TRUE ~ 'none'))
+
+# Append the new row to the matchup_roles dataframe
+
+matchup_roles <- rbind(matchup_roles, new_row)
+
+}
+
+#Update matchup_roles with innings_roles, filter out 'start' roles, and adjust column naming
+
+matchup_roles <- innings_roles %>%
+  left_join(matchup_roles, by = c('pitcher', 'year')) %>%
+  filter(role.x != 'start') %>%
+  select(-role.x) %>%
+  rename(role = role.y)
+```
+
+
+###############################################################################
+######################## Combine Roles ########################################
+###############################################################################
+
+```{r}
+#Rename the role columns in the dataframe
+
+matchup_roles <- rename(matchup_roles, matchup_role = role)
+leverage_roles <- rename(leverage_roles, leverage_role = role)
+length_roles <- rename(length_roles, length_role = role)
+innings_roles <- rename(innings_roles, inning_role = role)
+
+# Merge the roles dataframes on pitcher ID and year to create a comprehensive pitcher_roles dataframe
+
+pitcher_roles <- innings_roles %>%
+  left_join(matchup_roles, by = c('pitcher', 'year')) %>%
+  left_join(leverage_roles, by = c('pitcher', 'year')) %>%
+  left_join(length_roles, by = c('pitcher', 'year')) %>%
+  select(pitcher, year, inning_role, length_role, matchup_role, leverage_role)
+
+```
+
+
+```{r write csv}
+write.csv(pitcher_roles, 'pitcher_roles.csv')
+```
+
+
+```{r}
+pitcher_roles <- read.csv('pitcher_roles.csv')
+```
+
+
+
+
+
+
+
+
+
+

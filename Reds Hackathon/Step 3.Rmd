@@ -1,0 +1,437 @@
+---
+title: "Step 3"
+author: "Jack Arbuckle"
+date: "2024-01-26"
+output: html_document
+---
+```{r warning=FALSE}
+library(tidyverse)
+```
+
+### Outline Characteristics and performance metrics
+
+* Pitch arsenal
+
+  + Usage
+  + Movement / velo
+  + VAA
+  + HAA
+  + Stuff
+  + # of plus stuff pitches
+  
+* Performance metrics
+
+  + xwOBA against (include Vs RHH/LHH)
+  + BB%
+  + K%
+  + K/out
+  + wFC_sc (wFC/C) etc.
+  
+ 
+```{r}
+# read in the data
+
+fangraphs_table <- read.csv('fangraphs_cleaned.csv')
+statcast <- read.csv('savant_pitch_level.csv')
+```
+
+
+###############################################################################    ################################# Pitch Usages ################################ ###############################################################################
+
+```{r}
+#Select the relevant columns for pitch usage
+
+pitch_usage <- fangraphs_table %>%
+  select(MLBAMID, Season, FA_pct,SL_pct,CT_pct,CB_pct,CH_pct,SF_pct,KN_pct,XX_pct) %>%
+  rename(pitcher = MLBAMID,
+         year = Season)
+```
+
+
+###############################################################################    ####################### Movement / velo by pitch ############################## ###############################################################################
+
+```{r}
+#Select the relevant columns for pitch characteristics (velo and movement)
+
+pitch_velo_movement<- fangraphs_table %>%
+  select(MLBAMID, Season, vFA_sc, vFC_sc,vFS_sc, vFO_sc, vSI_sc,vSL_sc,vCU_sc,vKC_sc,vEP_sc,vCH_sc,vSC_sc,vKN_sc,FA_X_sc,FC_X_sc,FS_X_sc,FO_X_sc,SI_X_sc,SL_X_sc,CU_X_sc,KC_X_sc,EP_X_sc,CH_X_sc,SC_X_sc,KN_X_sc,FA_Z_sc,FC_Z_sc,FS_Z_sc,FO_Z_sc,SI_Z_sc,SL_Z_sc,CU_Z_sc,KC_Z_sc
+,EP_Z_sc,CH_Z_sc,SC_Z_sc,KN_Z_sc) %>%
+  rename(pitcher = MLBAMID,
+         year = Season)
+
+```
+
+###############################################################################    ################################# VAA by pitch ################################ ###############################################################################
+
+```{r}
+#Create the Vertical Approach Angle statistic for each pitch
+statcast <- statcast %>%
+    mutate(
+    vy_f = -sqrt(vy0^2 - (2 * ay * (50 - (17/12)))),
+    t = (vy_f - vy0) / ay,
+    vz_f = vz0 + (az * t),
+    VAA = -atan(vz_f / vy_f) * (180 / pi)
+  )
+
+# Group data by pitcher, game year, and pitch type, then calculate the mean VAA for each group
+VAA_table <- statcast %>%
+  group_by(pitcher, game_year, pitch_type) %>%
+  summarise(mean_VAA = mean(VAA), .groups = 'drop') %>%  # Calculate mean VAA and drop grouping
+  mutate(pitch_type = ifelse(is.na(pitch_type) | pitch_type == "", "NA", pitch_type)) %>%  # Handle missing or empty pitch types
+  pivot_wider(id_cols = c("pitcher", "game_year"),  # Pivot the data to a wide format
+              names_from = pitch_type,  # Use pitch type as column names
+              names_prefix = "VAA_",  # Prefix for new columns to indicate they represent mean VAA values
+              values_from = mean_VAA) %>%
+  rename(year = game_year)  # Rename 'game_year' column to 'year'
+```
+
+###############################################################################    ################################# HAA by Pitch ################################ ###############################################################################
+
+```{r}
+#Create the Horizontal Approach Angle statistic for each pitch
+statcast <- statcast %>%
+  mutate(
+    vy_f = -sqrt(vy0^2 - (2 * ay * (50 - (17/12)))),
+    t = (vy_f - vy0) / ay,
+    vx_f = vx0 + (ax * t),
+    HAA = -atan(vx_f / vy_f) * (180 / pi)
+  )
+
+# Group data by pitcher, game year, and pitch type, then calculate the mean HAA for each group
+HAA_table <- statcast %>%
+  group_by(pitcher, game_year, pitch_type) %>%
+  summarise(mean_HAA = mean(HAA), .groups = 'drop') %>%  # Calculate mean HAA and drop grouping
+  # Handle missing or empty values for pitch_type by assigning them a category "NA"
+  mutate(pitch_type = ifelse(is.na(pitch_type) | pitch_type == "", "NA", pitch_type)) %>%
+  # Pivot the data to a wide format, making each pitch type's mean HAA a separate column
+  pivot_wider(id_cols = c("pitcher", "game_year"), 
+              names_from = pitch_type, 
+              names_prefix = "HAA_",  # Prefix for new columns to indicate they represent mean HAA values
+              values_from = mean_HAA) %>%
+  rename(year = game_year)  # Rename 'game_year' column to 'year'
+```
+
+###############################################################################    ################################# Stuff+ by pitch ############################# ###############################################################################
+
+```{r}
+
+#select the relevant columns for stuff+
+stuff_table <- fangraphs_table %>%
+  select( c(2,4,6,277:306))
+
+# Further select the relevant columns for stuff+
+
+overall_grades <- stuff_table %>% 
+  select(MLBAMID, Season,Pit_plus_CH, Pit_plus_CU, Pit_plus_FA, Pit_plus_SI, Pit_plus_SL, Pit_plus_KC, Pit_plus_FC, Pit_plus_FS, Pit_plus_FO, Pitching_plus) %>%
+    rename(pitcher = MLBAMID,
+         year = Season)
+```
+
+###############################################################################    ####################### Number of Plus Stuff Pitches ########################## ###############################################################################
+
+```{r}
+
+#remove the MLBAMID and Season column to apply the function below to this new dataframe
+overall_grades_1 <- stuff_table %>% 
+  select(Pit_plus_CH, Pit_plus_CU, Pit_plus_FA, Pit_plus_SI, Pit_plus_SL, Pit_plus_KC, Pit_plus_FC, Pit_plus_FS, Pit_plus_FO) 
+```
+
+```{r}
+# Define a function to count the number of pitches with values over 100 for each row
+
+number_of_stuff_pitches <- function(row) {
+  count_over_100 <- sum(row > 100, na.rm = T) # Count values over 100, ignore NA values
+  
+  return(count_over_100)
+}
+
+#Apply the function across rows of overall_grades_1 to calculate the number of "stuff" pitches
+
+  overall_grades$NumberofStuffPitches <- apply(overall_grades_1 ,1, number_of_stuff_pitches)
+
+# Select relevant columns from overall_grades, focusing on pitcher, year, and the calculated number of "stuff" pitches  
+    
+plus_stuff <- overall_grades %>%
+  select(pitcher, year, NumberofStuffPitches) %>%
+  rename(plus_stuff_pitches = NumberofStuffPitches)
+  
+```
+
+###############################################################################    ############ xwOBA - against  Also vs RHH and vs LHH ########################## ###############################################################################
+
+```{r}
+# estimated_woba_using_speedangle
+# woba_denom
+
+# Calculate overall xwOBA for each pitcher and game year, using estimated wOBA where actual wOBA is missing
+
+woba_table <- statcast %>%
+  group_by(pitcher, game_year) %>%
+  mutate(estimated_woba_using_speedangle = if_else(is.na(estimated_woba_using_speedangle), woba_value, estimated_woba_using_speedangle)) %>%
+  summarize(xwoba = sum(estimated_woba_using_speedangle, na.rm = T) /
+            sum(woba_denom, na.rm = T))
+
+# Calculate xwOBA specifically against left-handed batters
+
+woba_table_L <- statcast %>%
+  filter(stand == 'L') %>%
+  group_by(pitcher, game_year) %>%
+  mutate(estimated_woba_using_speedangle = if_else(is.na(estimated_woba_using_speedangle), woba_value, estimated_woba_using_speedangle)) %>%
+  summarize(xwoba_l = sum(estimated_woba_using_speedangle, na.rm = T) /
+            sum(woba_denom, na.rm = T))
+
+# Calculate xwOBA specifically against right-handed batters
+
+woba_table_R <- statcast %>%
+  filter(stand == 'R') %>%
+  mutate(estimated_woba_using_speedangle = if_else(is.na(estimated_woba_using_speedangle), woba_value, estimated_woba_using_speedangle)) %>%
+  group_by(pitcher, game_year) %>%
+  summarize(xwoba_r = sum(estimated_woba_using_speedangle, na.rm = T) /
+            sum(woba_denom, na.rm = T))
+
+# Merge the overall, left-handed, and right-handed xwOBA values into a single dataframe and rename columns
+
+woba_values <- woba_table %>%
+  left_join(woba_table_R, by = c('pitcher', 'game_year')) %>%
+  left_join(woba_table_L, by = c('pitcher', 'game_year')) %>%
+  rename(year = game_year)
+```
+
+###############################################################################    ################################# BB% and K% ################################## ###############################################################################
+
+```{r}
+#select the relevant columns for K-percentage and walk percentage
+bb_k_rates <- fangraphs_table %>%
+  select(MLBAMID, Season, K_pct,BB_pct ) %>%
+  rename(pitcher = MLBAMID,
+         year = Season)
+```
+
+###############################################################################    ########################### K / out  ########################################## ###############################################################################
+
+```{r}
+# Select relevant columns from the fangraphs_table and calculate strikeouts per out
+strikeouts_per_out <- fangraphs_table %>%
+  select(K_per_9, Season, MLBAMID, NameASCII) %>%
+  mutate(KsperOut = K_per_9 / 27) %>% #Calculate strikeouts per out
+  rename(pitcher = MLBAMID,
+         year = Season)
+```
+
+###############################################################################    ################################# Pitch Run Value ############################# ###############################################################################
+
+```{r}
+# Select the relevant pitch run value columns
+
+pitch_run_value <- fangraphs_table %>%
+  select(MLBAMID, Season, wFB_per_c, wSL_per_c, wCT_per_c, wCB_per_c, wCH_per_c, wSF_per_c, wKN_per_c, FA_pct_sc) %>%
+  rename(pitcher = MLBAMID,
+         year = Season)
+
+```
+
+###############################################################################    ################################# Fastball Endurance  ############################## ###############################################################################
+
+
+```{r}
+
+fastball_statcast <- statcast %>%
+  filter(pitch_type == "FF") %>%
+  arrange(game_pk, pitcher, pitch_number_appearance)
+
+
+fastball_statcast <- fastball_statcast %>%
+  group_by(game_year, game_pk, pitcher) %>%
+  mutate(rolling_avg_velocity = rollapply(release_speed, width = 3, FUN = mean, fill = NA, align = 'right', partial = TRUE))
+head(fastball_statcast)
+
+summary(fastball_statcast$release_speed)
+
+```
+
+
+
+```{r}
+
+# Assuming 'fastballs' dataframe is already filtered for fastballs and arranged by pitcherid, game_pk, and pitch_order
+
+fastballs_with_threshold <- fastball_statcast %>%
+  group_by(game_year, game_pk, pitcher) %>%
+  # Calculate the row number within each game_pk and pitcher group
+  mutate(pitch_number_within_game = row_number()) %>%
+  # Add a new column with the rolling average velocity for the fifth pitch
+  # or use rolling_avg_velocity if there are fewer than five pitches
+  mutate(first_pitch_velocity = ifelse(pitch_number_within_game == 3, rolling_avg_velocity, 
+                                       ifelse(pitch_number_within_game < 3, rolling_avg_velocity, NA_real_))) %>%
+  # Fill NA values with the value from the fifth pitch or the last available pitch for each group
+  fill(first_pitch_velocity, .direction = "downup") %>%
+  ungroup()
+
+
+
+# Calculate the number of pitches until the pitcher matches or exceeds their first pitch velocity
+fastballs_matched_threshold <- fastballs_with_threshold %>%
+  group_by(game_year, game_pk, pitcher ) %>%
+  mutate(matched_first_velocity = rolling_avg_velocity <= first_pitch_velocity - 1.5,
+         pitch_count_to_match = cumsum(matched_first_velocity)) %>%
+  filter(matched_first_velocity) %>%
+  mutate(first_match_pitch = rank(pitch_number_appearance) == 1) %>%
+  filter(first_match_pitch) %>%
+  ungroup() %>%
+  select(game_year, game_pk,pitcher, pitch_number_appearance, rolling_avg_velocity, first_pitch_velocity, pitch_count_to_match)
+
+# This gives you a dataframe with each pitcher's first pitch that matches or exceeds their first pitch velocity in each game
+
+fastball_endurance <- fastballs_matched_threshold %>%
+  group_by(game_year, pitcher) %>%
+  summarise(avg_pitch_number_endurance = mean(pitch_number_appearance),
+            avg_rolling_avg_velocity = mean(rolling_avg_velocity),
+            avg_first_pitch_velocity = mean(first_pitch_velocity)) %>%
+  rename(year = game_year)
+
+
+```
+
+###############################################################################    ################################# xwoba By Times Faced  ############################## ###############################################################################
+
+
+
+```{r}
+
+
+# Calculate opposing team's batting average for each pitcher in each game by times through the order
+xwoba_by_order <- statcast %>%
+  group_by(game_year, game_pk, pitcher, times_faced) %>%
+  mutate(estimated_woba_using_speedangle = if_else(is.na(estimated_woba_using_speedangle), woba_value, estimated_woba_using_speedangle)) %>% 
+  summarize(xwoba = sum(estimated_woba_using_speedangle, na.rm = T) /
+            sum(woba_denom, na.rm = T)) %>%
+  ungroup()
+
+# View the resulting dataframe
+
+
+```
+
+```{r}
+
+
+
+xwoba_by_order_wide <- statcast %>%
+  group_by(game_year, game_pk, pitcher, times_faced) %>%
+  summarize(
+    xwoba = sum(if_else(is.na(estimated_woba_using_speedangle), woba_value, estimated_woba_using_speedangle), na.rm = TRUE) /
+             sum(woba_denom, na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  # Transform the dataset from long to wide
+  pivot_wider(
+    names_from = times_faced,
+    names_prefix = "xwoba_times_faced_",
+    values_from = xwoba
+  )
+
+xwoba_by_order_summary <- xwoba_by_order_wide %>%
+  group_by(game_year, pitcher) %>%
+  summarise(xwoba_times_faced_1 = mean(xwoba_times_faced_1, na.rm = TRUE),
+            xwoba_times_faced_2 = mean(xwoba_times_faced_2, na.rm = TRUE),
+            xwoba_times_faced_3 = mean(xwoba_times_faced_3, na.rm = TRUE),
+            xwoba_times_faced_4 = mean(xwoba_times_faced_4, na.rm = TRUE),
+            xwoba_times_faced_5 = mean(xwoba_times_faced_5, na.rm = TRUE))
+
+xwoba_by_order_summary <- xwoba_by_order_summary %>%
+  mutate(xwoba_faced_diff_1_2 = xwoba_times_faced_2 - xwoba_times_faced_1,
+         xwoba_faced_diff_2_3 = xwoba_times_faced_3 - xwoba_times_faced_2) %>%
+  rename(year = game_year)
+
+```
+
+
+###############################################################################    ################################# Pitch Type Percentage by Times Faced  ############################## ###############################################################################
+
+```{r}
+
+# Calculate the pitch type percentages
+pitch_type_percentages_wide <- statcast %>%
+  group_by(game_year, game_pk, pitcher, times_faced, pitch_type) %>%
+  summarize(pitch_count = n(), .groups = 'drop') %>%
+  group_by(game_year, game_pk, pitcher, times_faced) %>%
+  mutate(total_pitches = sum(pitch_count)) %>%
+  ungroup() %>%
+  mutate(pitch_type_percentage = pitch_count / total_pitches) %>%
+  # Transform the dataset from long to wide for each times_faced and pitch_type
+  pivot_wider(
+    id_cols = c(game_year, game_pk, pitcher),
+    names_from = c(times_faced, pitch_type),
+    names_prefix = "pitch_type_percentage_",
+    values_from = pitch_type_percentage,
+    values_fill = list(pitch_type_percentage = 0)  # Fill missing values with 0
+  )
+
+# Summarize the pitch type percentages by mean for each times faced across all games
+pitch_type_percentages_summary <- pitch_type_percentages_wide %>%
+  group_by(game_year, pitcher) %>%
+  summarize(across(starts_with("pitch_type_percentage_"), mean, na.rm = TRUE))
+
+pitch_type_percentages_summary2 <- pitch_type_percentages_summary %>%
+  mutate(across(
+    .cols = matches("percentage_2"),
+    .fns = ~ . - get(str_replace(cur_column(), "2", "1")),
+    .names = "diff_{str_replace(.col, 'percentage_2', 'percentage_1_2_diff')}"
+  ))
+
+
+pitch_type_percentages_summary2 <- pitch_type_percentages_summary2 %>%
+  mutate(across(
+    .cols = matches("percentage_3"),
+    .fns = ~ . - get(str_replace(cur_column(), "3", "2")),
+    .names = "diff_{str_replace(.col, 'percentage_3', 'percentage_2_3_diff')}"
+  )) %>%
+  rename(year = game_year)
+
+
+```
+
+
+
+
+
+
+
+
+###############################################################################    ################################# Combine Tables ############################## ###############################################################################
+
+```{r}
+#combine all the tables 
+
+pitcher_characteristics_metrics <- pitch_usage %>%
+  left_join(pitch_velo_movement, by = c('pitcher', 'year')) %>%
+  left_join(VAA_table, by = c('pitcher', 'year')) %>%
+  left_join(HAA_table, by = c('pitcher', 'year')) %>%
+  left_join(overall_grades, by = c('pitcher', 'year')) %>%
+  left_join(plus_stuff, by = c('pitcher', 'year')) %>%
+  left_join(woba_values, by = c('pitcher', 'year')) %>%
+  left_join(bb_k_rates, by = c('pitcher', 'year')) %>%
+  left_join(strikeouts_per_out, by = c('pitcher', 'year')) %>%
+  left_join(pitch_run_value, by = c('pitcher', 'year')) %>%
+  left_join(pitch_type_percentages_summary2, by = c('pitcher', 'year')) %>%
+  left_join(xwoba_by_order_summary, by = c('pitcher', 'year')) %>%
+  left_join(fastball_endurance, by = c('pitcher', 'year'))
+
+```
+
+```{r}
+pitcher_roles <- read.csv("pitcher_roles.csv")
+```
+
+```{r}
+pitcher_characteristics_metrics <- pitcher_characteristics_metrics %>%
+  left_join(pitcher_roles, by = c('pitcher','year'))
+```
+
+
+
+```{r}
+
+write.csv(pitcher_characteristics_metrics, "full_table.csv")
+```
+

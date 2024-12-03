@@ -1,0 +1,76 @@
+---
+title: "Step 4a"
+author: "Ben Scartz"
+date: "2024-02-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Cluster within roles to test performance based on metrics.
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+full_table <- read.csv('full_table.csv') %>% 
+  select(-X)
+
+fangraphs_table <- read.csv('fangraphs_season_level.csv') %>%
+  select(MLBAMID, Season)
+
+full_table1 <- full_table %>%
+  left_join(fangraphs_table, by = c('pitcher' = 'MLBAMID', 'year' = 'Season'))
+```
+
+get separate tables for each role
+
+```{r}
+# Inning
+
+inning_start_table <- full_table1 %>%
+  filter(inning_role == 'start')
+
+inning_middle_table <- full_table1 %>%
+  filter(inning_role == 'middle')
+
+inning_late_table <- full_table1 %>%
+  filter(inning_role == 'late')
+
+# Length
+
+length_long_table <- full_table1 %>%
+  filter(length_role == 'long')
+
+length_medium_table <- full_table1 %>%
+  filter(length_role == 'medium')
+
+length_short_table <- full_table1 %>%
+  filter(length_role == 'short')
+
+# Matchup
+
+matchup_lhh_table <- full_table1 %>%
+  filter(matchup_role == 'LHH')
+
+matchup_rhh_table <- full_table1 %>%
+  filter(matchup_role == 'RHH')
+
+# Leverage
+
+leverage_low_table <- full_table1 %>%
+  filter(leverage_role == 'low')
+
+leverage_high_table <- full_table1 %>%
+  filter(leverage_role == 'high')
+
+list_of_tables <- list(inning_start_table, inning_middle_table, inning_late_table, length_long_table, length_medium_table, length_short_table, matchup_lhh_table, matchup_rhh_table, leverage_low_table, leverage_high_table)
+```
+
+
+
+
+

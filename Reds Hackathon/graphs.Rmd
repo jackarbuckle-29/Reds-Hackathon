@@ -1,0 +1,51 @@
+---
+title: "Untitled"
+author: "Jack Arbuckle"
+date: "2024-02-05"
+output: html_document
+---
+
+
+```{r}
+graph_cluster_1 <- clusters_of_interest %>%
+mutate(in_cluster = if_else(list_object == 18 & cluster == 150, 1,0))
+graph_cluster_1
+
+```
+
+
+```{r}
+g_1<- ggplot(graph_cluster_1,
+              aes(x = K_pct,
+                  fill = factor(in_cluster))) + 
+  geom_density(alpha = 0.7) 
+g_1
+```
+
+```{r}
+graph_cluster_2 <- clusters_of_interest %>%
+mutate(in_cluster = if_else(list_object == 20 & cluster == 158, 1,0))
+graph_cluster_2
+```
+```{r}
+g_2 <- ggplot(graph_cluster_2, # Set data set
+              aes(x = BB_pct, # Set total distance as x-axis variable
+                  fill = factor(in_cluster))) + # Set injury as fill
+  geom_density(alpha = 0.7) 
+g_2
+```
+
+```{r}
+graph_cluster_3 <- clusters_of_interest %>%
+mutate(in_cluster = if_else(list_object == 5 & cluster == 1, 1,0))
+graph_cluster_3
+```
+
+
+```{r}
+g_3 <- ggplot(graph_cluster_3,
+              aes(x = NumberofStuffPitches, 
+                  fill = factor(in_cluster))) +
+  geom_density(alpha = 0.7) 
+g_3
+```

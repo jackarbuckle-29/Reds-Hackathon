@@ -1,0 +1,535 @@
+---
+title: "Step 4"
+output: html_document
+date: "2024-02-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r warning=FALSE}
+library(tidyverse)
+library(glue)
+
+full_table <- read.csv('full_table.csv') 
+  
+```
+
+
+
+
+
+###############################################################################
+######################## Loop Clustering ######################################
+###############################################################################
+
+```{r initial lists}
+fb_shape <- c('FA_X_sc', 'FA_Z_sc', 'vFA_sc')
+sl_shape <- c('SL_X_sc', 'SL_Z_sc', 'vSL_sc')
+fc_shape <- c('FC_X_sc', 'FC_Z_sc', 'vFC_sc')
+cu_shape <- c('CU_X_sc', 'CU_Z_sc', 'vCU_sc')
+kc_shape <- c('KC_X_sc', 'KC_Z_sc', 'vKC_sc')
+ch_shape <- c('CH_X_sc', 'CH_Z_sc', 'vCH_sc')
+sc_shape <- c('SC_X_sc', 'SC_Z_sc', 'vSC_sc')
+fo_shape <- c('FO_X_sc', 'FO_Z_sc', 'vFO_sc')
+si_shape <- c('SI_X_sc', 'SI_Z_sc', 'vSI_sc')
+fs_shape <- c('FS_X_sc', 'FS_Z_sc', 'vFS_sc')
+
+fb_usage <- 'FA_pct'
+sl_usage <- 'SL_pct'
+ct_usage <- 'CT_pct'
+cb_usage <- 'CB_pct'
+ch_usage <- 'CH_pct'
+sf_usage <- 'SF_pct'
+
+fb_stuff <- 'Pit_plus_FA'
+sl_stuff <- 'Pit_plus_SL'
+cb_stuff <- 'Pit_plus_CU'
+ch_stuff <- 'Pit_plus_CH'
+kc_stuff <-  'Pit_plus_KC'
+si_stuff <- 'Pit_plus_SI'
+fc_stuff <- 'Pit_plus_FC'
+fs_stuff <- 'Pit_plus_FS'
+fo_stuff <- 'Pit_plus_FO'
+
+fb_VAA <- 'VAA_FF'
+sl_VAA <- 'VAA_SL'
+CB_VAA <- 'VAA_CU'
+CH_VAA <- 'VAA_CH'
+KC_VAA <- 'VAA_KC'
+SI_VAA <- 'VAA_SI'
+FC_VAA <- 'VAA_FC'
+FS_VAA <- 'VAA_FS'
+FO_VAA <- 'VAA_FO'
+
+fb_HAA <- 'HAA_FF'
+sl_HAA <- 'HAA_SL'
+CB_HAA <- 'HAA_CU'
+CH_HAA <- 'HAA_CH'
+KC_HAA <- 'HAA_KC'
+SI_HAA <- 'HAA_SI'
+FC_HAA <- 'HAA_FC'
+FS_HAA <- 'HAA_FS'
+FO_HAA <- 'HAA_FO'
+
+
+
+number_of_Stuff <- 'NumberofStuffPitches'
+pitching_plus <- 'Pitching_plus'  
+
+fb_per_c <- "wFB_per_c"
+sl_per_c <- "wSL_per_c"
+ct_per_c <- "wCT_per_c"
+cb_per_c <- "wCB_per_c"
+ch_per_c <- "wCH_per_c"
+
+xwoba <- 'xwoba'
+xwoba_L <- 'xwoba_r'
+xwoba_R <- 'xwoba_l'
+
+K_pct <- 'K_pct'
+BB_pct <- 'BB_pct'
+K_per_9 <- 'K_per_9'
+KsperOut <- 'KsperOut'
+
+fastball_endurance <- 'avg_pitch_number_endurance'
+
+diff_1_2_FF <- 'diff_pitch_type_percentage_1_2_diff_FF'
+diff_2_3_FF <- 'diff_pitch_type_percentage_2_3_diff_FF'
+
+
+
+xwoba_1_2 <- 'xwoba_faced_diff_1_2'
+xwoba_2_3 <- 'xwoba_faced_diff_2_3'
+```
+
+```{r combined lists}
+
+fb_dom <- c(fb_shape, fb_usage, fb_stuff, fb_per_c, KsperOut)
+fb_sl <- c(fb_per_c, sl_per_c, fb_shape, sl_shape, fb_stuff, sl_stuff)
+fb_cu_ch_stuff <- c(fb_stuff, cb_stuff, ch_stuff, number_of_Stuff,pitching_plus)
+fb_ch <- c(fb_per_c, ch_per_c, fb_shape, ch_shape, fb_stuff, ch_stuff)
+arsenal_depth <- c(number_of_Stuff, pitching_plus)
+
+
+fc_ch <- c(fb_per_c, ch_per_c, fc_shape, ch_shape, fc_stuff, ch_stuff)
+fs_ch <- c(fb_per_c, ch_per_c, fs_shape, ch_shape, fs_stuff, ch_stuff)
+si_ch <- c(fb_per_c, ch_per_c, si_shape, ch_shape, si_stuff, ch_stuff)
+
+fc_cb <- c(fb_per_c, cb_per_c, fc_shape, cu_shape, fc_stuff, cb_stuff)
+fs_cb <- c(fb_per_c, cb_per_c, fs_shape, cu_shape, fs_stuff, cb_stuff)
+si_cb <- c(fb_per_c, cb_per_c, si_shape, cu_shape, si_stuff, cb_stuff)
+
+
+fc_sl <- c(fb_per_c, sl_per_c, fc_shape, sl_shape, fc_stuff, sl_stuff)
+fs_sl <- c(fb_per_c, sl_per_c, fs_shape, sl_shape, fs_stuff, sl_stuff)
+si_sl <- c(fb_per_c, sl_per_c, si_shape, sl_shape, si_stuff, sl_stuff)
+
+fb_cb <- c(fb_per_c, cb_per_c, fb_shape, cu_shape, fb_stuff, cb_stuff)
+cb_dom <- c(cu_shape, cb_usage, cb_stuff, cb_per_c, KsperOut)
+ch_dom <- c(ch_shape, ch_usage, ch_stuff, ch_per_c, KsperOut)
+sl_dom <- c(sl_shape, sl_usage, sl_stuff, sl_per_c, KsperOut)
+
+
+
+being_used <- c(fb_usage,sl_usage,ct_usage,cb_usage,ch_usage,sf_usage)
+bbk <- c(K_pct, BB_pct)
+xwoba_kman <- c(xwoba,K_pct,K_per_9, KsperOut)
+kman <- c(K_pct,K_per_9,KsperOut)
+x_wman <- c(xwoba,xwoba_R,xwoba_L)
+
+sonyx_walkman <- c(xwoba,BB_pct)
+
+x_wman_R <- c(xwoba,xwoba_R)
+
+x_wman_L <- c(xwoba,xwoba_R)
+
+
+fb_combined <- c(fb_shape, fb_usage, fb_stuff, fb_per_c, fb_VAA, fb_HAA)
+sl_combined <- c(sl_shape, sl_usage, sl_stuff, sl_per_c, sl_VAA, sl_HAA)
+cut_combined <- c(fc_shape, ct_usage, fc_stuff, ct_per_c, FC_VAA, FC_HAA)
+cb_combined <- c(cu_shape, cb_usage, cb_stuff, cb_per_c, CB_VAA, CB_HAA)
+ch_combined <- c(ch_shape, ch_usage, ch_stuff, ch_per_c, CH_VAA, CH_HAA)
+si_combined <- c(si_shape, si_stuff, SI_VAA, SI_HAA)
+
+
+
+fb_si_sl <- c(fb_combined, sl_combined, si_combined)
+fb_ch_cb <- c(fb_combined, ch_combined, cb_combined)
+fb_si_ch_sl <- c(fb_combined, si_combined, ch_combined, sl_combined)
+
+
+starter_pls <- c(fastball_endurance, xwoba_1_2)
+
+fastball_diff12 <- c(fastball_endurance, diff_1_2_FF, xwoba_1_2)
+fastball_diff23 <- c(fastball_endurance, diff_2_3_FF, xwoba_2_3)
+fastball_difffull <- c(fastball_endurance, diff_1_2_FF, diff_2_3_FF, xwoba)
+
+
+performance_metrics <- c(xwoba,K_pct, BB_pct, K_per_9, KsperOut)
+
+#################################
+
+list_of_lists <- list(fb_dom, fb_sl, fb_cu_ch_stuff, fb_ch, arsenal_depth,
+                      fc_ch, fc_cb, fc_sl, fb_cb, cb_dom,
+                      ch_dom, sl_dom, being_used, bbk, si_cb,si_ch,si_sl, xwoba_kman, 
+                      kman,sonyx_walkman, fb_si_sl, fb_ch_cb, fb_si_ch_sl, fastball_endurance, starter_pls, xwoba_1_2, xwoba_2_3, xwoba_L, xwoba_R, fastball_diff12, fastball_diff23, fastball_difffull)
+
+
+length(list_of_lists)
+
+```
+
+```{r loop clustering}
+
+clusters_of_interest <- data.frame(list_object = integer(),
+                                   cluster = integer(),
+                                   role = character(),
+                                   df = I(list()),
+                                   stringsAsFactors = FALSE)  # Initialize with proper column names
+
+for (number in seq_along(list_of_lists)) {
+  selected_table <- full_table[, list_of_lists[[number]]] %>%
+    na.omit() %>%
+    scale() 
+  
+col_names <- colnames(selected_table)
+  
+  
+num_centers <- ceiling(nrow(selected_table)/10)
+
+  set.seed(1990)
+  fit <- kmeans(x = selected_table,
+                centers = num_centers,
+                nstart = 25,
+                iter.max = 100)
+
+  clusters <- fit$cluster
+
+  for (i in 1:num_centers) {
+    cluster_table <- full_table[clusters == i, ]
+    
+######################
+############ Innings
+######################
+    
+    if (nrow(cluster_table) >= 8) {
+      start_count <- sum(cluster_table$innings_role == 'start', na.rm = TRUE)
+      middle_count <- sum(cluster_table$innings_role == 'middle', na.rm = TRUE)
+      late_count <- sum(cluster_table$innings_role == 'late', na.rm = TRUE)
+      
+      if (start_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Innings'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Innings',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (middle_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Innings'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Innings',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (late_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Innings'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Innings',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }    
+    }
+    
+    
+    
+######################
+############ Length
+######################
+    
+    if (nrow(cluster_table) >= 8) {
+      short_count <- sum(cluster_table$length_role == 'short', na.rm = TRUE)
+      medium_count <- sum(cluster_table$length_role == 'medium', na.rm = TRUE)
+      long_count <- sum(cluster_table$length_role == 'long', na.rm = TRUE)
+      
+      if (short_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Length'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Length',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (medium_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Length'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Length',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (long_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Length'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Length',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+######################   
+############ Matchup
+######################
+   
+        if (nrow(cluster_table) >= 8) {
+      rhh_count <- sum(cluster_table$matchup_role == 'RHH', na.rm = TRUE)
+      lhh_count <- sum(cluster_table$leverage_role == 'LHH', na.rm = TRUE)
+      none_count <- sum(cluster_table$leverage_role == 'none', na.rm = TRUE)
+
+      
+      if (rhh_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Matchup'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Matchup',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+  
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+        
+        
+      } else if (lhh_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Matchup'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Matchup',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (none_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Matchup'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Matchup',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+     
+
+######################
+############ Leverage
+######################
+
+    if (nrow(cluster_table) >= 8) {
+      high_count <- sum(cluster_table$leverage_role == 'high', na.rm = TRUE)
+      low_count <- sum(cluster_table$leverage_role == 'low', na.rm = TRUE)
+
+      if (high_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Leverage'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Leverage',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (low_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Leverage'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Leverage',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+    
+    
+  }
+}
+
+names(clusters_of_interest) <- str_remove_all(names(clusters_of_interest), "^df\\.")
+```
+
+
+###############################################################################
+###################### Performance Checks #####################################
+###############################################################################
+
+```{r performance checks}
+performance_matches <- data.frame()
+
+for(i in 1:nrow(clusters_of_interest)){
+
+list_object_number <- clusters_of_interest[i,1]
+cluster_number <- clusters_of_interest[i,2]
+check_role <- clusters_of_interest[i,3]
+  
+exploration_table <- clusters_of_interest %>%
+    filter(list_object == list_object_number & cluster == cluster_number) %>%
+    select(role, pitcher, inning_role, length_role, matchup_role, 
+           leverage_role, xwoba, IP) %>% # Assuming 'IP' is the column for Innings Pitched
+    filter(IP > 5)
+
+if(nrow(exploration_table) < 5){
+  next
+}
+
+######################
+############ Inning
+######################
+
+inning_role_counts <- table(exploration_table$inning_role)
+max_cat <- names(inning_role_counts)[which.max(inning_role_counts)]
+
+max_table <- exploration_table %>%
+  filter(inning_role == max_cat)
+min_table <- exploration_table %>%
+  filter(inning_role != max_cat)
+
+
+max_q3 <- quantile(max_table$xwoba, probs = 0.75)
+
+if(any(min_table$xwoba > max_q3) & check_role == 'Inning') {
+  new_row <- data.frame(list_object = list_object_number,
+                        cluster = cluster_number,
+                        role = 'Inning')
+
+  performance_matches <- rbind(performance_matches, new_row)
+}
+
+
+
+######################
+############ Length
+######################
+
+length_role_counts <- table(exploration_table$length_role)
+max_cat <- names(length_role_counts)[which.max(length_role_counts)]
+
+max_table <- exploration_table %>%
+  filter(length_role == max_cat)
+min_table <- exploration_table %>%
+  filter(length_role != max_cat)
+
+
+max_q3 <- quantile(max_table$xwoba, probs = 0.75)
+
+if(any(min_table$xwoba > max_q3) & check_role == 'Length') {
+  new_row <- data.frame(list_object = list_object_number,
+                        cluster = cluster_number,
+                        role = 'Length')
+
+  performance_matches <- rbind(performance_matches, new_row)
+}
+######################
+############ Matchup
+######################
+
+matchup_role_counts <- table(exploration_table$matchup_role)
+max_cat <- names(matchup_role_counts)[which.max(matchup_role_counts)]
+
+max_table <- exploration_table %>%
+  filter(matchup_role == max_cat)
+min_table <- exploration_table %>%
+  filter(matchup_role != max_cat)
+
+
+max_q3 <- quantile(max_table$xwoba, probs = 0.75)
+
+if(any(min_table$xwoba > max_q3) & check_role == 'Matchup') {
+  new_row <- data.frame(list_object = list_object_number,
+                        cluster = cluster_number,
+                        role = 'Matchup')
+
+  performance_matches <- rbind(performance_matches, new_row)
+}
+
+######################
+############ Leverage
+######################
+
+# Look for clusters where everyone is below 25th percentile of population woba where
+# the minority is low leverage
+
+population_xwoba <- mean(full_table$xwoba)
+population_xwoba_q1 <- quantile(full_table$xwoba, probs = 0.25)
+population_xwoba_q3 <- quantile(full_table$xwoba, probs = 0.75)
+
+
+leverage_role_counts <- table(exploration_table$leverage_role)
+max_cat <- names(leverage_role_counts)[which.max(leverage_role_counts)]
+min_table <- exploration_table %>%
+  filter(leverage_role != max_cat)
+
+if(all(exploration_table$xwoba < population_xwoba_q1) & max_cat == 'high' &
+        check_role == 'Leverage') {
+  new_row <- data.frame(list_object = list_object_number,
+                        cluster = cluster_number,
+                        role = 'Leverage')
+
+  performance_matches <- rbind(performance_matches, new_row)
+}
+
+
+
+# Look for where the minority is high leverage and HE is bad
+
+if(max_cat == 'low' & any(min_table$xwoba > population_xwoba_q3) & 
+   any(min_table$year) == 2023 & check_role == 'Leverage') {
+  new_row <- data.frame(list_object = list_object_number,
+                        cluster = cluster_number,
+                        role = 'Leverage')
+
+  performance_matches <- rbind(performance_matches, new_row)
+}
+
+
+}
+
+performance_matches <- unique(performance_matches)
+
+
+```
+
+
+```{r}
+clusters_of_interest %>%
+  filter(list_object == 18 & cluster == 150) %>%
+  select(name, throws, pitcher, year, IP, matchup_role, xwoba, list_of_lists[[18]])
+```
+
+```{r}
+list_of_lists[[1]]
+```
+
+
+
+
+
+
+
+

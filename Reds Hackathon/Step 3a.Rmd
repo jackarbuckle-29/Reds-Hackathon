@@ -1,0 +1,25 @@
+---
+title: "Step 3a"
+output: html_document
+date: "2024-02-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+full_table <- full_table %>%
+  mutate(FA_pct = if_else(is.na(FA_pct), 0, FA_pct),
+         SL_pct = if_else(is.na(SL_pct), 0, SL_pct),
+         CT_pct = if_else(is.na(CT_pct), 0, CT_pct),
+         CB_pct = if_else(is.na(CB_pct), 0, CB_pct),
+         CH_pct = if_else(is.na(CH_pct), 0, CH_pct),
+         SF_pct = if_else(is.na(SF_pct), 0, SF_pct),
+         KN_pct = if_else(is.na(KN_pct), 0, KN_pct)
+         ) %>%
+  filter(!is.na(xwoba_r) & !is.na(xwoba_l))
+
+write.csv(full_table, 'full_table.csv')
+```
+

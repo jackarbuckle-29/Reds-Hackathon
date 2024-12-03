@@ -1,0 +1,163 @@
+---
+title: "Fangraphs Clean"
+author: "Brian Papiernik"
+date: "2024-01-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r}
+# Load data and libraries
+library(tidyverse)
+statcast <- read_csv('savant_pitch_level.csv')
+fangraphs_table <- read.csv('fangraphs_season_level.csv')
+```
+
+
+
+```{r}
+sp_fangraphs <- fangraphs_table %>%
+  filter(Role == "SP")
+
+rp_fangraphs <- fangraphs_table %>%
+  filter(Role == "RP")
+
+
+
+# Assuming sp_fangraphs and rp_fangraphs are your data frames
+joined_data <- inner_join(sp_fangraphs, rp_fangraphs, by = c("Season", "MLBAMID"))
+
+joined_data <- joined_data %>%
+  mutate(totalTBF = TBF.x + TBF.y,
+         SPweightTBF = TBF.x / totalTBF,
+         RPweightTBF = 1 - SPweightTBF)
+head(joined_data)
+
+joined_data1 <- joined_data %>%
+  select(c(48:135,137:138, 140:309,354:441,443:444,446:617))
+head(joined_data1)
+
+```
+
+```{r}
+sp_not_in_rp <- anti_join(sp_fangraphs, rp_fangraphs, by = c("Season", "MLBAMID"))
+rp_not_in_sp <- anti_join(rp_fangraphs, sp_fangraphs, by = c("Season", "MLBAMID"))
+
+combined_not_in_both <- bind_rows(sp_not_in_rp, rp_not_in_sp)
+
+1961 + 682
+```
+
+
+
+
+
+
+
+```{r}
+library(dplyr)
+library(stringr)
+
+
+new_dataset <- joined_data1 %>%
+  mutate(across(ends_with(".x"), ~ . * SPweightTBF, .names = "weighted_{.col}")) %>%
+  mutate(across(ends_with(".y"), ~ . * RPweightTBF, .names = "weighted_{.col}"))
+
+# Identify columns that end with .x and .y
+x_cols <- names(new_dataset)[str_detect(names(new_dataset), "^weighted_.*\\.x$")]
+y_cols <- str_replace(x_cols, "\\.x$", ".y")
+
+# Check if all y_cols exist
+if(!all(y_cols %in% names(new_dataset))) {
+  stop("Some .y columns are missing.")
+}
+
+# Create new columns
+for(i in seq_along(x_cols)) {
+  new_col_name <- str_replace(x_cols[i], "weighted_", "")
+  new_col_name <- str_replace(new_col_name, "\\.x$", "")
+  new_dataset[[new_col_name]] <- new_dataset[[x_cols[i]]] + new_dataset[[y_cols[i]]]
+}
+
+# View the modified dataframe
+print(new_dataset[,1001:1300])
+
+new_dataset$weighted_AVG.x[1] + new_dataset$weighted_AVG.y[1]
+
+```
+
+```{r}
+
+final_dataset <- new_dataset[1042:1300]
+
+
+
+joined_data2 <- joined_data %>%
+  select(10:47,316:353)
+  
+  # Identify columns that end with .x and .y
+x_cols <- names(joined_data2)[str_detect(names(joined_data2), "\\.x$")]
+y_cols <- str_replace(x_cols, "\\.x$", ".y")
+
+# Check if all y_cols exist
+if(!all(y_cols %in% names(joined_data2))) {
+  stop("Some .y columns are missing.")
+}
+
+#create new columns
+for(i in seq_along(x_cols)) {
+  new_col_name <- str_replace(x_cols[i], "\\.x$", "")
+  joined_data2[[new_col_name]] <- joined_data2[[x_cols[i]]] + joined_data2[[y_cols[i]]]
+}
+
+joined_data2 <- joined_data2 %>%
+  select(77:114)
+
+head(joined_data2)
+
+joined_data3 <- joined_data %>%
+  select(1:9) %>%
+  rename(PlayerId = PlayerId.x,
+         Name = Name.x,
+         NameASCII = NameASCII.x,
+         Throws = Throws.x,
+         Age = Age.x,
+         Team = Team.x,
+         Role = Role.x)
+  
+
+```
+
+
+```{r}
+
+combined_dataset <- bind_cols(joined_data2, final_dataset)
+
+final_combined_dataset <- bind_cols(joined_data3, joined_data2, final_dataset)
+
+combined_not_in_both <- combined_not_in_both %>%
+  select(-c(136,139))
+
+head(final_combined_dataset)
+head(combined_not_in_both)
+```
+```{r}
+total_combined_dataset <- bind_rows(final_combined_dataset, combined_not_in_both)
+
+names(total_combined_dataset)
+```
+
+
+
+
+```{r}
+write.csv(total_combined_dataset, 'fangraphs_cleaned.csv')
+```
+
+

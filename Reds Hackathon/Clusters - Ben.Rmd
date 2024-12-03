@@ -1,0 +1,266 @@
+---
+title: "Clusters - Ben"
+author: "Ben Scartz"
+date: "2024-02-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(glue)
+```
+
+###############################################################################
+######################## Loop Clustering ######################################
+###############################################################################
+
+```{r lists}
+fb_shape <- c('FA_X_sc', 'FA_Z_sc', 'vFA_sc')
+sl_shape <- c('SL_X_sc', 'SL_Z_sc', 'vSL_sc')
+fc_shape <- c('FC_X_sc', 'FC_Z_sc', 'vFC_sc')
+cu_shape <- c('CU_X_sc', 'CU_Z_sc', 'vCU_sc')
+kc_shape <- c('KC_X_sc', 'KC_Z_sc', 'vKC_sc')
+ch_shape <- c('CH_X_sc', 'CH_Z_sc', 'vCH_sc')
+sc_shape <- c('SC_X_sc', 'SC_Z_sc', 'vSC_sc')
+fo_shape <- c('FO_X_sc', 'FO_Z_sc', 'vFO_sc')
+si_shape <- c('SI_X_sc', 'SI_Z_sc', 'vSI_sc')
+fs_shape <- c('FS_X_sc', 'FS_Z_sc', 'vFS_sc')
+
+fb_usage <- 'FA_pct'
+sl_usage <- 'SL_pct'
+ct_usage <- 'CT_pct'
+cb_usage <- 'CB_pct'
+ch_usage <- 'CH_pct'
+sf_usage <- 'SF_pct'
+
+fb_stuff <- 'Pit_plus_FA'
+sl_stuff <- 'Pit_plus_SL'
+cb_stuff <- 'Pit_plus_CU'
+ch_stuff <- 'Pit_plus_CH'
+kc_stuff <-  'Pit_plus_KC'
+si_stuff <- 'Pit_plus_SI'
+fc_stuff <- 'Pit_plus_FC'
+fs_stuff <- 'Pit_plus_FS'
+fo_stuff <- 'Pit_plus_FO'
+
+number_of_Stuff <- 'NumberofStuffPitches'
+pitching_plus <- 'Pitching_plus'  
+
+fb_per_c <- "wFB_per_c"
+sl_per_c <- "wSL_per_c"
+ct_per_c <- "wCT_per_c"
+cb_per_c <- "wCB_per_c"
+ch_per_c <- "wCH_per_c"
+
+xwoba <- 'xwoba'
+xwoba_L <- 'xwoba_r'
+xwoba_R <- 'xwoba_l'
+
+K_pct <- 'K_pct'
+BB_pct <- 'BB_pct'
+K_per_9 <- 'K_per_9'
+KsperOut <- 'KsperOut'
+
+
+  
+############################################################
+
+Fb_dom <- c(fb_shape, fb_usage, fb_stuff, fb_per_c, KsperOut)
+fb_sl <- c(fb_per_c, sl_per_c, fb_shape, sl_shape, fb_stuff, sl_stuff)
+
+fb_cu_ch_stuff <- c(fb_stuff, cb_stuff, ch_stuff, number_of_Stuff,pitching_plus)
+
+performance_metrics <- c(xwoba, xwoba_R, xwoba_L, K_pct, BB_pct, K_per_9, KsperOut)
+
+#################################
+list_of_lists <- list(FACHCU_stuff)
+#################################
+```
+
+
+```{r}
+num_centers <- 264
+clusters_of_interest <- data.frame(list_object = integer(),
+                                   cluster = integer(),
+                                   role = character(),
+                                   df = I(list()),
+                                   stringsAsFactors = FALSE)  # Initialize with proper column names
+
+for (number in seq_along(list_of_lists)) {
+  selected_table <- full_table[, list_of_lists[[number]]] %>%
+    na.omit() %>%
+    scale()
+
+  set.seed(1990)
+  fit <- kmeans(x = selected_table,
+                centers = num_centers,
+                nstart = 25,
+                iter.max = 100)
+
+  clusters <- fit$cluster
+
+  for (i in 1:num_centers) {
+    cluster_table <- full_table[clusters == i, ]
+    
+######################
+############ Innings
+######################
+    
+    if (nrow(cluster_table) >= 9) {
+      start_count <- sum(cluster_table$innings_role == 'start', na.rm = TRUE)
+      middle_count <- sum(cluster_table$innings_role == 'middle', na.rm = TRUE)
+      late_count <- sum(cluster_table$innings_role == 'late', na.rm = TRUE)
+      
+      if (start_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Innings'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Innings',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (middle_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Innings'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Innings',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (late_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Innings'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Innings',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+    
+######################
+############ Length
+######################
+    
+    if (nrow(cluster_table) >= 9) {
+      short_count <- sum(cluster_table$length_role == 'short', na.rm = TRUE)
+      medium_count <- sum(cluster_table$length_role == 'medium', na.rm = TRUE)
+      long_count <- sum(cluster_table$length_role == 'long', na.rm = TRUE)
+      
+      if (short_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Length'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Length',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (medium_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Length'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Length',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (long_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Length'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Length',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+######################   
+############ Matchup
+######################
+   
+        if (nrow(cluster_table) >= 9) {
+      rhh_count <- sum(cluster_table$matchup_role == 'RHH', na.rm = TRUE)
+      lhh_count <- sum(cluster_table$leverage_role == 'LHH', na.rm = TRUE)
+
+      
+      if (rhh_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Matchup'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Matchup',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+  
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+        
+        
+      } else if (lhh_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Matchup'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Matchup',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+     
+
+######################
+############ Leverage
+######################
+
+    if (nrow(cluster_table) >= 9) {
+      high_count <- sum(cluster_table$leverage_role == 'high', na.rm = TRUE)
+      low_count <- sum(cluster_table$leverage_role == 'low', na.rm = TRUE)
+
+      if (high_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Leverage'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Leverage',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      } else if (low_count >= (nrow(cluster_table) - 2)) {
+        print(glue::glue('List: {number}, Cluster: {i}, Role: Leverage'))
+        new_row <- data.frame(list_object = number,
+                              cluster = i,
+                              role = 'Leverage',
+                              df = cluster_table,
+                              stringsAsFactors = FALSE)
+        
+        clusters_of_interest <- rbind(clusters_of_interest, new_row)
+      }
+    }
+    
+    
+    
+    
+  }
+}
+
+```
+
+
+
+
+
+
