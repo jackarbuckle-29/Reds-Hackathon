@@ -1,6 +1,6 @@
 ---
 title: "Step 2 - Classify Pitchers by Roles"
-author: "Ben Scartz"
+author: "Ben Scartz and Jack Arbuckle"
 date: "2024-01-23"
 output: html_document
 ---
