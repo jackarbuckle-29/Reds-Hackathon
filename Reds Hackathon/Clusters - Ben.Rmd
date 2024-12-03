@@ -1,6 +1,6 @@
 ---
 title: "Clusters - Ben"
-author: "Ben Scartz"
+author: "Ben Scartz and Jack Arbuckle"
 date: "2024-02-01"
 output: html_document
 ---
